@@ -1,0 +1,186 @@
+Server creation
+	npm init -y
+	npm install express mongoose cors dotenv
+Client creation
+	npx create-react-app client
+	cd client
+	npm install axios react-router-dom
+Structure of the project
+	server
+		config
+		controllers
+		models
+		routes
+		.env
+		.gitignore
+		index.js
+		package.json
+In server/.env
+	MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/mydatabase?retryWrites=true&w=majority
+	PORT=5000
+
+In server/config/db.js
+	const mongoose = require('mongoose');
+	const dotenv = require('dotenv');
+
+	dotenv.config();
+
+	const connectDB = async () => {
+  	try {
+    	await mongoose.connect(process.env.MONGO_URI, {
+      	useNewUrlParser: true,
+      	useUnifiedTopology: true,
+    	});
+    	console.log('MongoDB connected');
+  	} catch (error) {
+    	console.error(error);
+    	process.exit(1);
+  	}
+	};
+
+	module.exports = connectDB;
+
+In server/models/User.js
+	const mongoose = require('mongoose');
+
+	const userSchema = new mongoose.Schema({
+ 	 name: { type: String, required: true },
+  	email: { type: String, required: true, unique: true },
+  	password: { type: String, required: true },
+	});
+
+	module.exports = mongoose.model('User', userSchema);
+In server/controllers/userController.js
+	const User = require('../models/User');
+
+	// Register new user
+	const registerUser = async (req, res) => {
+  	const { name, email, password } = req.body;
+  	try {
+    	const user = new User({ name, email, password });
+    	await user.save();
+    	res.status(201).json(user);
+  	} catch (error) {
+    	res.status(400).json({ message: error.message });
+  	}
+	};
+
+	module.exports = { registerUser };
+In server/routes/userRoutes.js
+	const express = require('express');
+	const { registerUser } = require('../controllers/userController');
+
+	const router = express.Router();
+
+	// Route for user registration
+	router.post('/register', registerUser);
+
+	module.exports = router;
+In server/index.js
+	const express = require('express');
+	const cors = require('cors');
+	const dotenv = require('dotenv');
+	const connectDB = require('./config/db');
+	const userRoutes = require('./routes/userRoutes');
+
+	dotenv.config();
+	connectDB();
+
+	const app = express();
+
+	// Middleware
+	app.use(cors());
+	app.use(express.json());
+
+	// API routes
+	app.use('/api/users', userRoutes);
+
+	const PORT = process.env.PORT || 5000;
+	app.listen(PORT, () => {
+  	console.log(`Server running on port ${PORT}`);
+	});
+--------------------------
+In client/src/components/Register.js
+	import { useState } from 'react';
+	import axios from 'axios';
+
+	const Register = () => {
+  	const [name, setName] = useState('');
+  	const [email, setEmail] = useState('');
+  	const [password, setPassword] = useState('');
+  	const [message, setMessage] = useState('');
+
+  	const handleSubmit = async (e) => {
+    	e.preventDefault();
+    	try {
+      	const res = await axios.post('http://localhost:5000/api/users/register', {
+        name,
+        email,
+        password,
+      	});
+      	setMessage('User registered successfully');
+    	} catch (error) {
+      	setMessage('Error registering user: ' + error.response.data.message);
+    	}
+  	};
+
+  	return (
+    	<div>
+      	<h2>Register</h2>
+      	<form onSubmit={handleSubmit}>
+       	 <div>
+          <label>Name:</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <label>Email:</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <label>Password:</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
+        <button type="submit">Register</button>
+      	</form>
+      	{message && <p>{message}</p>}
+    	</div>
+  		);
+	};
+
+	export default Register;
+In client/package.json
+	"proxy": "http://localhost:5000"
+In client/App.js
+	import React from 'react';
+	import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+	import Register from './components/Register';
+
+	function App() {
+  	return (
+    	<Router>
+      	<div className="App">
+        <Routes>
+          <Route path="/register" element={<Register />} />
+        </Routes>
+      	</div>
+    	</Router>
+  		);
+	}
+
+	export default App;
+....................................
